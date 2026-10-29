@@ -1,5 +1,5 @@
 
-package com.digitalsignal;
+package com.digitalsignal.generator;
 
 public final class Palindrome {
     private Palindrome() {}

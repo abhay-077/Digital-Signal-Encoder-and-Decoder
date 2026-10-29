@@ -1,6 +1,8 @@
 
 package com.digitalsignal;
 
+import com.digitalsignal.generator.Palindrome;
+
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
