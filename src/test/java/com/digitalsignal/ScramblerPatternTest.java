@@ -1,4 +1,7 @@
 package com.digitalsignal;
+
+import com.digitalsignal.scrambling.B8zsStrategy;
+import com.digitalsignal.scrambling.Hdb3Strategy;
 import com.digitalsignal.linecoding.LineCodingStrategy;
 import org.junit.jupiter.api.Test;
 

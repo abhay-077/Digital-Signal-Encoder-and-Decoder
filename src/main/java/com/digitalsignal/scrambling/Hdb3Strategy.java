@@ -1,4 +1,4 @@
-package com.digitalsignal;
+package com.digitalsignal.scrambling;
 import com.digitalsignal.linecoding.LineCodingStrategy;
 import java.util.ArrayList;
 import java.util.List;

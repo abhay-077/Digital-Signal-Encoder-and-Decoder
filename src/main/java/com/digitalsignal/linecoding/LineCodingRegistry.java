@@ -1,6 +1,7 @@
 package com.digitalsignal.linecoding;
-import com.digitalsignal.B8zsStrategy;
-import com.digitalsignal.Hdb3Strategy;
+
+import com.digitalsignal.scrambling.B8zsStrategy;
+import com.digitalsignal.scrambling.Hdb3Strategy;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
