@@ -1,5 +1,7 @@
 
-package com.digitalsignal;
+package com.digitalsignal.generator;
+
+import com.digitalsignal.generator.Palindrome;
 
 import com.digitalsignal.generator.Palindrome;
 

@@ -1,4 +1,8 @@
-package com.digitalsignal;
+package com.digitalsignal.scrambling;
+
+import com.digitalsignal.linecoding.LineCodingStrategy;
+import com.digitalsignal.scrambling.B8zsStrategy;
+import com.digitalsignal.scrambling.Hdb3Strategy;
 
 import com.digitalsignal.scrambling.B8zsStrategy;
 import com.digitalsignal.scrambling.Hdb3Strategy;
