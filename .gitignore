@@ -1,0 +1,29 @@
+
+# Compiled Java files
+*.class
+
+# Maven build output
+target/
+
+# Logs
+*.log
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Java crash dumps
+hs_err_pid*
+
+# Temporary files
+*.tmp
+*.bak
+
+# Generated packages
+*.jar
+*.war
