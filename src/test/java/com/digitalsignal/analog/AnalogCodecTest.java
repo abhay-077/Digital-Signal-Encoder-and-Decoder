@@ -1,6 +1,6 @@
 package com.digitalsignal.analog;
 
-import com.digitalsignal.AnalogCodec;
+import com.digitalsignal.analog.AnalogCodec;
 
 import org.junit.jupiter.api.Test;
 import java.util.List;

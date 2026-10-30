@@ -1,4 +1,4 @@
-package com.digitalsignal;
+package com.digitalsignal.core;
 import com.digitalsignal.linecoding.LineCodingRegistry;
 import com.digitalsignal.linecoding.LineCodingStrategy;
 import java.util.List;

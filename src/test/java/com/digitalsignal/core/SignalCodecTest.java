@@ -1,5 +1,6 @@
 
-package com.digitalsignal;
+package com.digitalsignal.core;
+
 
 import org.junit.jupiter.api.Test;
 

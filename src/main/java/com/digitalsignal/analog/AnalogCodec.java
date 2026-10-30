@@ -1,4 +1,4 @@
-package com.digitalsignal;
+package com.digitalsignal.analog;
 
 import java.util.ArrayList;
 import java.util.List;

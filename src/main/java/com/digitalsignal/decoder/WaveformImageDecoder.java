@@ -1,4 +1,5 @@
-package com.digitalsignal;
+package com.digitalsignal.decoder;
+import com.digitalsignal.core.SignalCodec;
 
 import javafx.scene.image.Image;
 import javafx.scene.image.PixelReader;

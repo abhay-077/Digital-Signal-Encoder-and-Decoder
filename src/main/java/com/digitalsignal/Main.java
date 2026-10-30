@@ -2,6 +2,9 @@
 package com.digitalsignal;
 
 import com.digitalsignal.generator.Palindrome;
+import com.digitalsignal.analog.AnalogCodec;
+import com.digitalsignal.core.SignalCodec;
+import com.digitalsignal.decoder.WaveformImageDecoder;
 
 import javafx.application.Application;
 import javafx.geometry.Insets;
