@@ -5,15 +5,15 @@ import java.util.List;
 
 public final class NrzIStrategy implements LineCodingStrategy {
 
+    private static final double INITIAL_LEVEL = -1.0;
+
     @Override
     public List<Double> encode(String bits) {
         List<Double> signal = new ArrayList<>(bits.length() * 2);
-        if (bits.isEmpty()) return signal;
+        double level = INITIAL_LEVEL;
 
-        double level = bits.charAt(0) == '1' ? 1.0 : -1.0;
-
-        for (int i = 0; i < bits.length(); i++) {
-            if (i > 0 && bits.charAt(i) == '1') {
+        for (char bit : bits.toCharArray()) {
+            if (bit == '1') {
                 level = -level;
             }
 
@@ -27,24 +27,20 @@ public final class NrzIStrategy implements LineCodingStrategy {
     @Override
     public String decode(List<Double> signal) {
         validate(signal);
+
         StringBuilder bits = new StringBuilder(signal.size() / 2);
-        double previous = 0;
+        double previousLevel = INITIAL_LEVEL;
 
         for (int i = 0; i < signal.size(); i += 2) {
-            double a = signal.get(i);
-            double b = signal.get(i + 1);
+            double first = signal.get(i);
+            double second = signal.get(i + 1);
 
-            if (a != b || Math.abs(a) != 1.0) {
+            if (first != second || Math.abs(first) != 1.0) {
                 throw new IllegalArgumentException("Invalid NRZ-I signal.");
             }
 
-            if (i == 0) {
-                bits.append(a > 0 ? '1' : '0');
-            } else {
-                bits.append(a != previous ? '1' : '0');
-            }
-
-            previous = a;
+            bits.append(first != previousLevel ? '1' : '0');
+            previousLevel = first;
         }
 
         return bits.toString();

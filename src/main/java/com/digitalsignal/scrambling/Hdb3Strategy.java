@@ -1,118 +1,165 @@
 package com.digitalsignal.scrambling;
+
 import com.digitalsignal.linecoding.LineCodingStrategy;
+
 import java.util.ArrayList;
 import java.util.List;
 
 public final class Hdb3Strategy implements LineCodingStrategy {
 
+    private static final double INITIAL_POLARITY = -1.0;
+
     @Override
     public List<Double> encode(String bits) {
         validateBits(bits);
+
         List<Double> pulses = new ArrayList<>(bits.length());
-        double last = -1.0;
-        int count = 0;
+        double last = INITIAL_POLARITY;
+        int pulseCount = 0;
         int i = 0;
 
         while (i < bits.length()) {
-            if (i + 4 <= bits.length() && bits.startsWith("0000", i)) {
-                if (count % 2 == 0) {
-                    // B00V: B is normal AMI polarity; V repeats B.
-                    double b = -last;
-                    pulses.add(b);
+            if (bits.startsWith("0000", i)) {
+                if (pulseCount % 2 == 0) {
+                    // B00V: balancing pulse followed by a violation.
+                    double balancing = -last;
+
+                    pulses.add(balancing);
                     pulses.add(0.0);
                     pulses.add(0.0);
-                    pulses.add(b);
-                    last = b;
+                    pulses.add(balancing);
+
+                    last = balancing;
                 } else {
-                    // 000V: V repeats the preceding nonzero pulse.
+                    // 000V: violation repeats the previous pulse polarity.
                     pulses.add(0.0);
                     pulses.add(0.0);
                     pulses.add(0.0);
                     pulses.add(last);
                 }
-                count = 0;
+
+                pulseCount = 0;
                 i += 4;
-            } else {
-                double p = 0;
-                if (bits.charAt(i++) == '1') {
-                    p = -last;
-                    last = p;
-                    count++;
-                }
-                pulses.add(p);
+                continue;
             }
+
+            double pulse = 0.0;
+
+            if (bits.charAt(i) == '1') {
+                pulse = -last;
+                last = pulse;
+                pulseCount++;
+            }
+
+            pulses.add(pulse);
+            i++;
         }
+
         return expand(pulses);
     }
 
     @Override
     public String decode(List<Double> signal) {
-        double[] p = collapse(signal);
-        StringBuilder bits = new StringBuilder(p.length);
-        double last = -1.0;
-        int count = 0;
+        double[] pulses = collapse(signal);
+
+        StringBuilder bits = new StringBuilder(pulses.length);
+        double last = INITIAL_POLARITY;
         int i = 0;
 
-        while (i < p.length) {
-            if (i + 4 <= p.length) {
-                // 000V: three zeros followed by a same-polarity violation.
-                if (p[i] == 0 && p[i + 1] == 0 && p[i + 2] == 0
-                        && p[i + 3] != 0 && p[i + 3] == last) {
-                    bits.append("0000");
-                    last = p[i + 3];
-                    count = 0;
-                    i += 4;
-                    continue;
-                }
-
-                // B00V: B and V have the same polarity.
-                if (p[i] != 0 && p[i + 1] == 0 && p[i + 2] == 0
-                        && p[i + 3] == p[i]) {
-                    bits.append("0000");
-                    last = p[i + 3];
-                    count = 0;
-                    i += 4;
-                    continue;
-                }
+        while (i < pulses.length) {
+            if (isViolationPattern(pulses, i, last)) {
+                bits.append("0000");
+                last = pulses[i + 3];
+                i += 4;
+                continue;
             }
 
-            double pulse = p[i++];
-            bits.append(pulse == 0 ? '0' : '1');
-            if (pulse != 0) {
+            double pulse = pulses[i++];
+
+            if (pulse != 0.0) {
+                if (pulse == last) {
+                    throw new IllegalArgumentException(
+                            "Invalid AMI polarity outside HDB3 substitution."
+                    );
+                }
+
                 last = pulse;
-                count++;
+                bits.append('1');
+            } else {
+                bits.append('0');
             }
         }
+
         return bits.toString();
     }
 
-    private static List<Double> expand(List<Double> pulses) {
-        List<Double> result = new ArrayList<>(pulses.size() * 2);
-        for (double p : pulses) {
-            result.add(p);
-            result.add(p);
+    private static boolean isViolationPattern(
+            double[] pulses, int index, double last) {
+
+        if (index + 4 > pulses.length) {
+            return false;
         }
-        return result;
+
+        // 000V: violation has the same polarity as the previous pulse.
+        boolean zeroZeroZeroViolation =
+                pulses[index] == 0.0
+                        && pulses[index + 1] == 0.0
+                        && pulses[index + 2] == 0.0
+                        && pulses[index + 3] != 0.0
+                        && pulses[index + 3] == last;
+
+        // B00V: B has normal AMI polarity; V repeats B.
+        boolean balancingZeroZeroViolation =
+                pulses[index] == -last
+                        && pulses[index] != 0.0
+                        && pulses[index + 1] == 0.0
+                        && pulses[index + 2] == 0.0
+                        && pulses[index + 3] == pulses[index];
+
+        return zeroZeroZeroViolation || balancingZeroZeroViolation;
+    }
+
+    private static List<Double> expand(List<Double> pulses) {
+        List<Double> signal = new ArrayList<>(pulses.size() * 2);
+
+        for (double pulse : pulses) {
+            signal.add(pulse);
+            signal.add(pulse);
+        }
+
+        return signal;
     }
 
     private static double[] collapse(List<Double> signal) {
-        if (signal == null || signal.isEmpty() || signal.size() % 2 != 0)
+        if (signal == null || signal.isEmpty() || signal.size() % 2 != 0) {
             throw new IllegalArgumentException("Invalid HDB3 signal length.");
-
-        double[] result = new double[signal.size() / 2];
-        for (int i = 0; i < result.length; i++) {
-            Double a = signal.get(i * 2), b = signal.get(i * 2 + 1);
-            if (a == null || b == null || !Double.isFinite(a)
-                    || !Double.isFinite(b) || a < -1 || a > 1
-                    || a.doubleValue() != b.doubleValue())
-                throw new IllegalArgumentException("Invalid HDB3 pulse.");
-            result[i] = a;
         }
-        return result;
+
+        double[] pulses = new double[signal.size() / 2];
+
+        for (int i = 0; i < pulses.length; i++) {
+            Double first = signal.get(i * 2);
+            Double second = signal.get(i * 2 + 1);
+
+            if (first == null || second == null
+                    || !Double.isFinite(first)
+                    || !Double.isFinite(second)
+                    || (first != -1.0 && first != 0.0 && first != 1.0)
+                    || !first.equals(second)) {
+                throw new IllegalArgumentException("Invalid HDB3 pulse.");
+            }
+
+            pulses[i] = first;
+        }
+
+        return pulses;
     }
 
     private static void validateBits(String bits) {
-        if (bits == null || bits.isEmpty() || !bits.matches("[01]+"))
-            throw new IllegalArgumentException("Bit stream must contain only 0 and 1.");
+        if (bits == null || bits.isEmpty() || !bits.matches("[01]+")) {
+            throw new IllegalArgumentException(
+                    "Bit stream must contain only 0 and 1."
+            );
+        }
     }
 }

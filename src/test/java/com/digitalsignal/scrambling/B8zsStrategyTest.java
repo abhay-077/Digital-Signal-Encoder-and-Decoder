@@ -39,15 +39,64 @@ class B8zsStrategyTest {
     }
 
     @Test
+    void handlesLeadingEightZeros() {
+        B8zsStrategy strategy = new B8zsStrategy();
+
+        String bits = "00000000";
+
+        assertEquals(bits, strategy.decode(strategy.encode(bits)));
+    }
+
+    @Test
+    void handlesConsecutiveEightZeroBlocks() {
+        B8zsStrategy strategy = new B8zsStrategy();
+
+        for (String bits : List.of(
+                "10000000000000000",
+                "110000000000000000"
+        )) {
+            assertEquals(bits, strategy.decode(strategy.encode(bits)));
+        }
+    }
+
+    @Test
     void roundTripsZeroRunsWithBothPolarities() {
         B8zsStrategy strategy = new B8zsStrategy();
 
         for (String bits : List.of(
-                "100000000", "1100000000",
-                "1000000001", "11000000001"
+                "100000000",
+                "1100000000",
+                "1000000001",
+                "11000000001",
+                "1010000000001"
         )) {
             assertEquals(bits, strategy.decode(strategy.encode(bits)),
                     "B8ZS round-trip failed for " + bits);
         }
+    }
+
+    @Test
+    void rejectsInvalidSignalValues() {
+        B8zsStrategy strategy = new B8zsStrategy();
+
+        assertThrows(IllegalArgumentException.class,
+                () -> strategy.decode(List.of(0.5, 0.5)));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> strategy.decode(List.of(1.0, -1.0)));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> strategy.decode(List.of(0.0)));
+    }
+
+    @Test
+    void rejectsInvalidBitStreams() {
+        B8zsStrategy strategy = new B8zsStrategy();
+
+        assertThrows(IllegalArgumentException.class,
+                () -> strategy.encode("10201"));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> strategy.encode(""));
     }
 }

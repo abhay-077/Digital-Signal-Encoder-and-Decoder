@@ -1,3 +1,4 @@
+
 # Digital Signal Encoder and Decoder
 
 ## Project Team
@@ -12,13 +13,15 @@ This project was developed by the following students:
 
 ## Overview
 
-This project is developed for **ITT 036: Programming Assignment 1 — Autumn 2026**. It implements digital signal encoding and decoding with a JavaFX graphical interface for signal visualization.
+This project is developed for **ITT 036: Programming Assignment 1 — Autumn 2026**.
+
+It implements digital signal generation, encoding, decoding, and analog-to-digital conversion using Java. A JavaFX graphical interface allows users to interact with the implemented techniques and visualize encoded signals.
 
 ## Features
 
 ### 1. Digital Data Generation
-- Generate random binary data.
-- Generate binary sequences containing consecutive zeros.
+- Generate random binary sequences.
+- Insert four or eight consecutive zeros into a binary sequence.
 - Find the longest palindromic substring in a binary sequence.
 
 ### 2. Line Coding Techniques
@@ -27,31 +30,34 @@ This project is developed for **ITT 036: Programming Assignment 1 — Autumn 202
 - **Manchester**
 - **Differential Manchester**
 - **AMI:** Alternate Mark Inversion
-- **B8ZS:** Bipolar with 8-Zero Substitution
-- **HDB3:** High-Density Bipolar 3-Zero
 - **RZ:** Return-to-Zero
 
-### 3. Analog-to-Digital Conversion
-- Pulse Code Modulation (PCM)
-- Delta Modulation (DM)
-- Encoding and decoding of analog samples.
+### 3. Scrambling Techniques
+- **B8ZS:** Bipolar with 8-Zero Substitution
+- **HDB3:** High-Density Bipolar 3-Zero
 
-### 4. Graphical Interface
+### 4. Analog-to-Digital Conversion
+- Pulse Code Modulation (PCM).
+- Delta Modulation (DM).
+- Encoding and decoding of analog sample sequences.
+
+### 5. Graphical Interface
 - JavaFX-based graphical user interface.
-- Visualization of encoded signal waveforms.
-- Options to select encoding modes and schemes.
-- Experimental waveform image decoding using image pixel analysis.
+- Visualization of encoded digital signal waveforms.
+- Selection of line-coding schemes and analog modulation modes.
+- Display of encoding and decoding results.
 
-### 5. Automated Testing
-- JUnit tests for digital signal encoding and decoding.
+### 6. Automated Testing
+- JUnit 5 tests for line-coding strategies.
+- Tests for B8ZS and HDB3 scrambling.
 - Tests for PCM and Delta Modulation.
-- Tests for palindrome detection and scrambling behavior.
+- Tests for palindrome detection.
 - Input validation and edge-case testing.
 
 ## Technologies Used
 
 - **Programming Language:** Java 21
-- **GUI Framework:** JavaFX
+- **GUI Framework:** JavaFX 21
 - **Build Tool:** Apache Maven
 - **Testing Framework:** JUnit 5
 - **Design Pattern:** Strategy Pattern
@@ -59,24 +65,36 @@ This project is developed for **ITT 036: Programming Assignment 1 — Autumn 202
 ## Project Structure
 
 ```text
-Digial-Signal-Encoder-and-Decoder/
-├── .mvn/
+Digital-Signal-Encoder-and-Decoder/
 ├── src/
 │   ├── main/
 │   │   ├── java/com/digitalsignal/
 │   │   │   ├── Main.java
-│   │   │   ├── SignalCodec.java
-│   │   │   ├── Palindrome.java
-│   │   │   ├── WaveformImageDecoder.java
-│   │   │   └── ...
+│   │   │   ├── analog/
+│   │   │   │   └── AnalogCodec.java
+│   │   │   ├── core/
+│   │   │   │   └── SignalCodec.java
+│   │   │   ├── generator/
+│   │   │   │   └── Palindrome.java
+│   │   │   ├── linecoding/
+│   │   │   │   ├── LineCodingStrategy.java
+│   │   │   │   ├── LineCodingRegistry.java
+│   │   │   │   ├── AmiStrategy.java
+│   │   │   │   ├── DifferentialManchesterStrategy.java
+│   │   │   │   ├── ManchesterStrategy.java
+│   │   │   │   ├── NrzIStrategy.java
+│   │   │   │   ├── NrzLStrategy.java
+│   │   │   │   └── RzStrategy.java
+│   │   │   └── scrambling/
+│   │   │       ├── B8zsStrategy.java
+│   │   │       └── Hdb3Strategy.java
 │   │   └── resources/
-│   └── test/
-│       └── java/com/digitalsignal/
-│           ├── SignalCodecTest.java
-│           ├── AnalogCodecTest.java
-│           ├── PalindromeTest.java
-│           ├── ScramblerPatternTest.java
-│           └── ...
+│   └── test/java/com/digitalsignal/
+│       ├── analog/AnalogCodecTest.java
+│       ├── core/SignalCodecTest.java
+│       ├── generator/PalindromeTest.java
+│       ├── linecoding/
+│       └── scrambling/
 ├── .gitignore
 ├── pom.xml
 └── README.md
@@ -84,13 +102,13 @@ Digial-Signal-Encoder-and-Decoder/
 
 ## Requirements
 
-- Java Development Kit (JDK) 21
-- Apache Maven
-- JavaFX-compatible graphical environment
+- Java Development Kit (JDK) 21 or compatible version.
+- Apache Maven.
+- JavaFX-compatible graphical environment.
 
 ## How to Run
 
-Open a terminal in the directory containing `pom.xml`.
+Open a terminal in the project directory containing `pom.xml`.
 
 ### Build the Project
 
@@ -114,22 +132,26 @@ mvn javafx:run
 
 The latest reported automated test run completed successfully:
 
-- **Total:** 20 tests
+- **Total tests:** 56
 - **Failures:** 0
 - **Errors:** 0
 - **Skipped:** 0
 
-Tests cover digital encoding and decoding, analog conversion, palindrome detection, scrambling, and edge cases.
+Tests cover digital encoding and decoding, analog conversion, palindrome detection, scrambling, input validation, and edge cases.
 
 ## Design Approach
 
-The line-coding implementations use the **Strategy Pattern**. Individual strategy classes encapsulate the behavior of specific coding schemes, while a central registry selects the appropriate strategy.
+The project uses the **Strategy Pattern** for line-coding operations. Each coding scheme is implemented in an independent strategy class.
+
+A central registry manages the available line-coding strategies, while the `SignalCodec` facade provides a common interface for encoding and decoding operations.
+
+This design separates individual algorithms from their selection and makes the project easier to maintain and extend.
 
 ## Limitations
 
-- Image-based waveform decoding is experimental.
-- Decoding accuracy depends on the waveform layout, image scaling, cropping, and the selected encoding scheme.
-- Image-decoding results should be verified against the original input.
+- The application decodes signals using their numerical encoded values rather than analysing waveform images.
+- Image-based waveform decoding is not included.
+- The implemented analog modulation techniques are PCM and Delta Modulation.
 
 ## Assignment Information
 
