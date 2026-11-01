@@ -4,7 +4,6 @@ package com.digitalsignal;
 import com.digitalsignal.generator.Palindrome;
 import com.digitalsignal.analog.AnalogCodec;
 import com.digitalsignal.core.SignalCodec;
-import com.digitalsignal.decoder.WaveformImageDecoder;
 
 import javafx.application.Application;
 import javafx.geometry.Insets;
@@ -12,9 +11,6 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.image.Image;
-import javafx.stage.FileChooser;
-import java.io.File;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
@@ -22,6 +18,7 @@ import javafx.scene.text.Font;
 import javafx.stage.Stage;
 
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class Main extends Application {
 
@@ -29,7 +26,8 @@ public class Main extends Application {
     private final ComboBox<String> encoding = new ComboBox<>();
     private final Canvas canvas = new Canvas(1100, 420);
     private final ComboBox<String> mode = new ComboBox<>();
-    private final TextField imageBitCount = new TextField("20");
+   private final ComboBox<String> scrambling = new ComboBox<>();
+private final ComboBox<String> scramblingType = new ComboBox<>();
 
     private final TextField analogInput =
             new TextField("0, 0.8, 1.4, 0.9, 0, -0.8, -1.2, -0.5, 0.4");
@@ -49,16 +47,41 @@ public class Main extends Application {
 
     private List<Double> analogLevels = List.of();
     private String analogBits = "";
+    private String decodedAnalogBits = "";
     private String analogMode = "";
+
+    // Preserve the original parameters used during analog encoding.
+    private double pcmMin;
+    private double pcmMax;
+    private int encodedPcmBits;
+    private double encodedDmStep;
+    private double encodedDmInitial;
 
     private String currentBits = "";
     private String currentEncoding = "";
+   private String currentScrambling = "None";
     private List<Double> levels = List.of();
 
     @Override
     public void start(Stage stage) {
 
-        encoding.getItems().setAll(SignalCodec.SCHEMES);
+        encoding.getItems().setAll(
+        "NRZ-L",
+        "NRZ-I",
+        "Manchester",
+        "Differential Manchester",
+        "AMI",
+        "RZ"
+);
+
+scrambling.getItems().setAll("No", "Yes");
+scrambling.setValue("No");
+
+scramblingType.getItems().setAll("B8ZS", "HDB3");
+scramblingType.setValue("B8ZS");
+
+scrambling.setDisable(true);
+scramblingType.setDisable(true);
 
         mode.getItems().setAll(
                 "Line coding",
@@ -68,6 +91,24 @@ public class Main extends Application {
 
         mode.setValue("Line coding");
         encoding.setValue("Manchester");
+       encoding.setOnAction(e -> {
+    boolean isAmi = "AMI".equals(encoding.getValue());
+
+    scrambling.setDisable(!isAmi);
+    scramblingType.setDisable(!isAmi || !"Yes".equals(scrambling.getValue()));
+
+    if (!isAmi) {
+        scrambling.setValue("No");
+        scramblingType.setValue("B8ZS");
+    }
+});
+
+scrambling.setOnAction(e -> {
+    scramblingType.setDisable(
+            !"AMI".equals(encoding.getValue())
+                    || !"Yes".equals(scrambling.getValue())
+    );
+});
 
         analogInput.setPrefColumnCount(30);
         pcmBits.setPrefColumnCount(3);
@@ -81,13 +122,9 @@ public class Main extends Application {
         Button decodeButton = new Button("Decode");
         Button randomButton = new Button("Generate random");
         Button zerosButton = new Button("Insert 8 zeros");
+        Button fourZerosButton = new Button("Insert 4 zeros");
         Button analogButton = new Button("Process analog");
         Button analogDecodeButton = new Button("Decode analog");
-        Button imageDecodeButton = new Button("Decode from Image");
-        imageBitCount.setPrefColumnCount(4);
-        imageBitCount.setPromptText("Bit count");
-        imageDecodeButton.setOnAction(e -> decodeFromImage(stage));
-
         analogButton.setOnAction(e -> processAnalog());
 
         // Uses the existing analog decoder.
@@ -108,6 +145,13 @@ public class Main extends Application {
             encode();
         });
 
+        fourZerosButton.setOnAction(e -> {
+            input.setText(
+                    randomBits(8) + "0000" + randomBits(8)
+            );
+            encode();
+        });
+
         HBox controls = new HBox(
                 10,
                 new Label("Binary input:"),
@@ -116,10 +160,15 @@ public class Main extends Application {
                 mode,
                 new Label("Scheme:"),
                 encoding,
+                       new Label("Scrambling:"),
+        scrambling,
+        new Label("Type:"),
+        scramblingType,
                 encodeButton,
                 decodeButton,
                 randomButton,
-                zerosButton
+                zerosButton,
+                fourZerosButton
         );
 
         controls.setPadding(new Insets(12, 16, 12, 16));
@@ -135,7 +184,7 @@ public class Main extends Application {
         );
 
         Label subtitle = new Label(
-                "Line coding, AMI scrambling and waveform-based decoding"
+                "Line coding, AMI scrambling and analog signal modulation"
         );
 
         subtitle.setStyle(
@@ -153,9 +202,7 @@ public class Main extends Application {
                 new Label("DM initial:"),
                 dmInitial,
                 analogButton,
-                analogDecodeButton,
-                new Label("Image bits:"), imageBitCount,
-                imageDecodeButton
+                analogDecodeButton
         );
 
         analogControls.setAlignment(Pos.CENTER_LEFT);
@@ -221,76 +268,77 @@ public class Main extends Application {
         stage.show();
     }
 
-    private void decodeFromImage(Stage stage) {
-        FileChooser chooser = new FileChooser();
-        chooser.setTitle("Select waveform screenshot");
-        chooser.getExtensionFilters().add(
-                new FileChooser.ExtensionFilter(
-                        "Image files", "*.png", "*.jpg", "*.jpeg"
-                )
-        );
-
-        File file = chooser.showOpenDialog(stage);
-        if (file == null) {
-            status.setText("Image selection cancelled.");
-            return;
-        }
-
-        try {
-            int bitCount = Integer.parseInt(imageBitCount.getText().trim());
-            if (bitCount < 1) {
-                throw new IllegalArgumentException(
-                        "Bit count must be positive."
-                );
-            }
-
-            Image image = new Image(file.toURI().toString(), false);
-            String scheme = encoding.getValue();
-
-            String recovered = WaveformImageDecoder.decode(
-                    image, bitCount, scheme
-            );
-
-            decoded.setText("Image-decoded bits: " + recovered);
-            status.setText(
-                    "Image analysis completed using " + scheme
-                    + ". Check the recovered bits against your expected input."
-            );
-        } catch (Exception ex) {
-            status.setText("Image decode failed: " + ex.getMessage());
-        }
-    }
-
     private static String randomBits(int n) {
-        StringBuilder b = new StringBuilder(n);
+        if (n < 0) {
+            throw new IllegalArgumentException(
+                    "Number of random bits cannot be negative."
+            );
+        }
+
+        StringBuilder bits = new StringBuilder(n);
 
         for (int i = 0; i < n; i++) {
-            b.append(Math.random() < 0.5 ? '0' : '1');
+            bits.append(ThreadLocalRandom.current().nextBoolean() ? '1' : '0');
         }
 
-        return b.toString();
+        return bits.toString();
     }
 
     private void encode() {
-        String bits = input.getText() == null
-                ? ""
-                : input.getText().trim();
+        // Invalidate the previous digital result before a new attempt.
+        currentBits = "";
+        currentEncoding = "";
+        levels = List.of();
+
+        decoded.setText("Decoded bits: —");
+        palindrome.setText("Longest palindrome: —");
 
         try {
-            // Validate before encoding or calculating the palindrome.
+            String bits = input.getText() == null
+                    ? ""
+                    : input.getText().trim();
+
             if (bits.isEmpty() || !bits.matches("[01]+")) {
                 throw new IllegalArgumentException(
                         "Enter a non-empty binary sequence containing only 0 and 1."
                 );
             }
 
-            levels = SignalCodec.encode(bits, encoding.getValue());
+            String selectedEncoding = encoding.getValue();
 
-            currentBits = bits;
-            currentEncoding = encoding.getValue();
+if (selectedEncoding == null || selectedEncoding.isBlank()) {
+    throw new IllegalArgumentException(
+            "Select a line-coding scheme."
+    );
+}
 
-            // Calculate the longest palindromic substring.
+String actualEncoding = selectedEncoding;
+currentScrambling = "None";
+
+if ("AMI".equals(selectedEncoding)
+        && "Yes".equals(scrambling.getValue())) {
+
+    String selectedScrambling = scramblingType.getValue();
+
+    if (selectedScrambling == null || selectedScrambling.isBlank()) {
+        throw new IllegalArgumentException(
+                "Select B8ZS or HDB3 scrambling."
+        );
+    }
+
+    actualEncoding = selectedScrambling;
+    currentScrambling = selectedScrambling;
+}
+
+            List<Double> encodedLevels =
+        SignalCodec.encode(bits, actualEncoding);
+
             String longest = Palindrome.longest(bits);
+
+            // Commit the new result only after encoding succeeds.
+            currentBits = bits;
+            currentEncoding = actualEncoding;
+            levels = encodedLevels;
 
             palindrome.setText(
                     "Longest palindrome: " + longest
@@ -313,15 +361,15 @@ public class Main extends Application {
                             + " bits using " + currentEncoding + "."
             );
 
-            decoded.setText("Decoded bits: —");
-
         } catch (IllegalArgumentException ex) {
+            drawEmpty();
             status.setText("Input error: " + ex.getMessage());
         }
     }
 
     private void decode() {
-        if (levels.isEmpty()) {
+        if (levels.isEmpty() || currentBits.isEmpty()
+                || currentEncoding.isEmpty()) {
             status.setText("Encode a sequence first.");
             return;
         }
@@ -333,6 +381,10 @@ public class Main extends Application {
             );
 
             decoded.setText("Decoded bits: " + result);
+
+            if (!analogMode.isEmpty()) {
+                decodedAnalogBits = result;
+            }
 
             status.setText(
                     result.equals(currentBits)
@@ -346,6 +398,9 @@ public class Main extends Application {
     }
 
     private void processAnalog() {
+        // Invalidate the previous result before attempting a new encoding.
+        resetAnalogState();
+
         try {
             List<Double> samples =
                     AnalogCodec.parseSamples(analogInput.getText());
@@ -360,6 +415,9 @@ public class Main extends Application {
                 analogMode = "PCM";
                 analogBits = result.bits();
                 analogLevels = result.samples();
+                pcmMin = result.min();
+                pcmMax = result.max();
+                encodedPcmBits = result.bitsPerSample();
 
                 analogOutput.setText(
                         "PCM bits (" + width + " bits/sample): "
@@ -392,6 +450,8 @@ public class Main extends Application {
                 analogMode = "Delta Modulation";
                 analogBits = result.bits();
                 analogLevels = result.samples();
+                encodedDmStep = result.stepSize();
+                encodedDmInitial = result.initialLevel();
 
                 analogOutput.setText(
                         "DM bits: " + analogBits
@@ -412,7 +472,57 @@ public class Main extends Application {
                 status.setText(
                         "Choose PCM or Delta Modulation in Mode."
                 );
+                return;
             }
+
+            // Line-code the digital bits generated by PCM or DM.
+            String selectedEncoding = encoding.getValue();
+
+            if (selectedEncoding == null || selectedEncoding.isBlank()) {
+                throw new IllegalArgumentException(
+                        "Select a line-coding scheme."
+                );
+            }
+
+            String actualEncoding = selectedEncoding;
+            currentScrambling = "None";
+
+            if ("AMI".equals(selectedEncoding)
+                    && "Yes".equals(scrambling.getValue())) {
+
+                actualEncoding = scramblingType.getValue();
+
+                if (actualEncoding == null || actualEncoding.isBlank()) {
+                    throw new IllegalArgumentException(
+                            "Select B8ZS or HDB3 scrambling."
+                    );
+                }
+
+                currentScrambling = actualEncoding;
+            }
+
+            List<Double> encodedLevels =
+                    SignalCodec.encode(analogBits, actualEncoding);
+
+            currentBits = analogBits;
+            currentEncoding = actualEncoding;
+            levels = encodedLevels;
+
+            double cell = Math.max(
+                    28,
+                    Math.min(70, 1000.0 / analogBits.length())
+            );
+
+            canvas.setWidth(
+                    Math.max(1100, 90 + analogBits.length() * cell)
+            );
+
+            drawWaveform();
+
+            status.setText(
+                    analogMode + " bits line-coded using "
+                            + currentEncoding + "."
+            );
 
         } catch (IllegalArgumentException ex) {
             status.setText(
@@ -422,33 +532,25 @@ public class Main extends Application {
     }
 
     private void decodeAnalog() {
-        if (analogBits.isEmpty()) {
+        if (analogBits.isEmpty() || analogMode.isEmpty()) {
             status.setText("Process analog input first.");
+            return;
+        }
+
+        if (decodedAnalogBits.isEmpty()) {
+            status.setText("Decode the line-coded waveform first.");
             return;
         }
 
         try {
             if ("PCM".equals(analogMode)) {
 
-                List<Double> source =
-                        AnalogCodec.parseSamples(analogInput.getText());
-
-                double min = source.stream()
-                        .mapToDouble(Double::doubleValue)
-                        .min()
-                        .orElseThrow();
-
-                double max = source.stream()
-                        .mapToDouble(Double::doubleValue)
-                        .max()
-                        .orElseThrow();
-
-                int width =
-                        Integer.parseInt(pcmBits.getText().trim());
-
                 List<Double> decodedSamples =
                         AnalogCodec.decodePcm(
-                                analogBits, width, min, max
+                                decodedAnalogBits,
+                                encodedPcmBits,
+                                pcmMin,
+                                pcmMax
                         );
 
                 analogLevels = decodedSamples;
@@ -467,15 +569,9 @@ public class Main extends Application {
 
             } else if ("Delta Modulation".equals(analogMode)) {
 
-                double step =
-                        Double.parseDouble(dmStep.getText().trim());
-
-                double initial =
-                        Double.parseDouble(dmInitial.getText().trim());
-
                 AnalogCodec.DmDecoded result =
                         AnalogCodec.decodeDelta(
-                                analogBits, step, initial
+                                decodedAnalogBits, encodedDmStep, encodedDmInitial
                         );
 
                 analogLevels = result.staircase();
@@ -500,6 +596,22 @@ public class Main extends Application {
                     "Analog decode error: " + ex.getMessage()
             );
         }
+    }
+
+    private void resetAnalogState() {
+        analogBits = "";
+        decodedAnalogBits = "";
+        analogMode = "";
+        analogLevels = List.of();
+
+        pcmMin = 0.0;
+        pcmMax = 0.0;
+        encodedPcmBits = 0;
+
+        encodedDmStep = 0.0;
+        encodedDmInitial = 0.0;
+
+        analogOutput.setText("Analog output: —");
     }
 
     private static String format(List<Double> values) {
