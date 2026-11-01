@@ -40,11 +40,14 @@ It implements digital signal generation, encoding, decoding, and analog-to-digit
 - Pulse Code Modulation (PCM).
 - Delta Modulation (DM).
 - Encoding and decoding of analog sample sequences.
+- Integration of PCM and Delta Modulation bitstreams with selected line-coding schemes.
+- Recovery of analog samples through line-code decoding followed by analog decoding.
 
 ### 5. Graphical Interface
 - JavaFX-based graphical user interface.
 - Visualization of encoded digital signal waveforms.
 - Selection of line-coding schemes and analog modulation modes.
+- Optional B8ZS/HDB3 scrambling selection when AMI is selected.
 - Display of encoding and decoding results.
 
 ### 6. Automated Testing
@@ -97,7 +100,8 @@ Digital-Signal-Encoder-and-Decoder/
 │       └── scrambling/
 ├── .gitignore
 ├── pom.xml
-└── README.md
+├── README.md
+└── specification-report.pdf
 ```
 
 ## Requirements
@@ -162,4 +166,6 @@ This design separates individual algorithms from their selection and makes the p
 
 ## Acknowledgment
 
-This project was developed for academic purposes. Any external resources and AI assistance used during development should be acknowledged according to the course requirements.
+AI tools and external documentation were used for learning, debugging,
+and development assistance. The project implementation was reviewed
+and tested by the team.
